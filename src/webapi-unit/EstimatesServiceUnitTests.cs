@@ -8,6 +8,7 @@ using BodyShopBoosterTest.Enumerations;
 using BodyShopBoosterTest.Exceptions;
 using BodyShopBoosterTest.Models;
 using BodyShopBoosterTest.Services;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
 
@@ -18,13 +19,17 @@ namespace BodyShopBoosterTest_UnitTests
     {
         // INSTANCE METHODS
         /// <summary>Retrieves a new instance of a valid <see cref="Estimate"/> object to be used in the tests.</summary>
+        /// <param name="withValidId">
+        ///     A flag indicating if the new instance should be created with a valid ID (a newly generated, random GUID), or with a default/unset ID (an empty GUID).
+        /// </param>
         /// <returns>
         ///     Returns the newly instantiated <see cref="Estimate"/> object.
         ///     This object initially contains all-valid data.
         /// </returns>
-        private Estimate InstantiateValidEstimateData() =>
+        private Estimate InstantiateValidEstimateData(bool withValidId) =>
             new Estimate
             {
+                Id = withValidId ? Guid.NewGuid() : default,
                 FirstName = "John",
                 LastName = "Doe",
                 CarType = VehicleType.Truck,
@@ -45,10 +50,23 @@ namespace BodyShopBoosterTest_UnitTests
         ///     <para>This method can also take an <see cref="Action{T}"/> method that can be used to further configure scenario-specific options.</para>
         /// </remarks>
         /// <param name="extraSetups">An optional action to be called to perform extra configuration steps for the mocked object, if necessary.</param>
+        /// <param name="canFindEstimates">
+        ///     A flag indicating if <see cref="AppDbContext.Estimates"/> will return a valid instance when calling <see cref="DbSet{TEntity}.FindAsync(object[])"/>.
+        ///     If set to <c>false</c>, the find method will always return <c>null</c>.
+        ///     If set to <c>true</c>, the find method will always return a random <see cref="Estimate"/> instance (created by calling <see cref="InstantiateValidEstimateData(bool)"/>).
+        /// </param>
         /// <returns>Returns the mocked <see cref="AppDbContext"/> instance.</returns>
-        private AppDbContext CreateMockAppDbContext(Action<Mock<AppDbContext>> extraSetups = null)
+        private AppDbContext CreateMockAppDbContext(Action<Mock<AppDbContext>> extraSetups = null, bool canFindEstimates = true)
         {
-            // Create an AppDbContext and simulate its AddAsync() and SaveChangesAsync() methods
+            // Create a mock DbSet<Estimate> object for the mocked AppDbContext
+            var estimatesDbSetMock = new Mock<DbSet<Estimate>>();
+            estimatesDbSetMock.Setup(dbSet => dbSet.FindAsync(It.IsAny<object[]>()))
+                .Returns(() => ValueTask.FromResult(
+                    canFindEstimates ? InstantiateValidEstimateData(withValidId: true) : null
+                ));
+
+
+            // Create a mock AppDbContext and simulate some of its methods and properties
             Estimate addedObject = null;
             var appDbContextMock = new Mock<AppDbContext>();
             appDbContextMock.Setup(context => context.AddAsync(It.IsAny<Estimate>(), It.IsAny<CancellationToken>()))
@@ -60,6 +78,10 @@ namespace BodyShopBoosterTest_UnitTests
                     // Assigns a new ID to the Estimate, as it happens when DbContext.SaveChangesAsync(...) is called
                     addedObject.Id = Guid.NewGuid();
                 });
+
+            appDbContextMock.SetupGet(context => context.Estimates)
+                .Returns(estimatesDbSetMock.Object);
+
 
             // If this method has received any extra setup actions to be executed, then execute them
             extraSetups?.Invoke(appDbContextMock);
@@ -77,7 +99,7 @@ namespace BodyShopBoosterTest_UnitTests
         public async Task CreateEstimateAsync_ValidData_ReturnsValidEstimate()
         {
             // Arrange
-            var inputData = InstantiateValidEstimateData();
+            var inputData = InstantiateValidEstimateData(withValidId: false);
             var inputValidationContext = new ValidationContext(inputData);
             var inputValidationResults = new List<ValidationResult>();
 
@@ -109,7 +131,7 @@ namespace BodyShopBoosterTest_UnitTests
         public async Task CreateEstimateAsync_DataWithPredefinedId_ThrowsServiceException()
         {
             // Arrange
-            var inputData = InstantiateValidEstimateData();
+            var inputData = InstantiateValidEstimateData(withValidId: false);
             inputData.Id = Guid.NewGuid();
 
             var mockAppDbContext = CreateMockAppDbContext();
@@ -143,7 +165,7 @@ namespace BodyShopBoosterTest_UnitTests
         public async Task CreateEstimateAsync_DataWithNonPendingStatus_ThrowsServiceException(EstimateStatus statusToTest)
         {
             // Arrange
-            var inputData = InstantiateValidEstimateData();
+            var inputData = InstantiateValidEstimateData(withValidId: false);
             inputData.Status = statusToTest;
 
             var inputValidationContext = new ValidationContext(inputData);
@@ -180,7 +202,7 @@ namespace BodyShopBoosterTest_UnitTests
         public async Task CreateEstimateAsync_AddAsyncThrowsException_ThrowsServiceException()
         {
             // Arrange
-            var inputData = InstantiateValidEstimateData();
+            var inputData = InstantiateValidEstimateData(withValidId: false);
 
             var mockAppDbContext = CreateMockAppDbContext(mockConfigs => {
                 mockConfigs.Setup(ctx => ctx.AddAsync(It.IsAny<Estimate>(), It.IsAny<CancellationToken>()))
@@ -211,7 +233,7 @@ namespace BodyShopBoosterTest_UnitTests
         public async Task CreateEstimateAsync_SaveChangesAsyncThrowsException_ThrowsServiceException()
         {
             // Arrange
-            var inputData = InstantiateValidEstimateData();
+            var inputData = InstantiateValidEstimateData(withValidId: false);
 
             var mockAppDbContext = CreateMockAppDbContext(mockConfigs => {
                 mockConfigs.Setup(ctx => ctx.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -235,6 +257,40 @@ namespace BodyShopBoosterTest_UnitTests
             // Assert
             Assert.NotNull(caughtException);
             Assert.Equal(caughtException.AppErrorCode, AppExceptionErrorCodes.DatabaseUpdateError);
+        }
+
+
+        [Fact]
+        public async Task GetEstimateByIdAsync_ExistingGuid_ReturnsEstimateDataSuccessfully()
+        {
+            // Arrange
+            var mockAppDbContext = CreateMockAppDbContext(canFindEstimates: true);
+            var estimatesService = new EstimatesService(mockAppDbContext);
+
+            var someRandomGuid = Guid.NewGuid();
+
+            // Act
+            var result = await estimatesService.GetEstimateByIdAsync(someRandomGuid);
+
+            // Assert
+            Assert.NotNull(result);
+        }
+
+
+        [Fact]
+        public async Task GetEstimateByIdAsync_NonExistingGuid_ReturnsNull()
+        {
+            // Arrange
+            var mockAppDbContext = CreateMockAppDbContext(canFindEstimates: false);
+            var estimatesService = new EstimatesService(mockAppDbContext);
+
+            var someRandomGuid = Guid.NewGuid();
+
+            // Act
+            var result = await estimatesService.GetEstimateByIdAsync(someRandomGuid);
+
+            // Assert
+            Assert.Null(result);
         }
     }
 }

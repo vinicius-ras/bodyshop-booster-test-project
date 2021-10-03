@@ -8,7 +8,7 @@ namespace BodyShopBoosterTest.Data
 	{
 		// INSTANCE PROPERTIES
 		/// <summary>Allows for the access of <see cref="Estimate"/> entities in the database.</summary>
-		public DbSet<Estimate> Estimates { get; set; }
+		public virtual DbSet<Estimate> Estimates { get; set; }
 
 
 
@@ -16,7 +16,11 @@ namespace BodyShopBoosterTest.Data
 
 		// INSTANCE METHODS
 		/// <summary>Constructor.</summary>
-		public AppDbContext()
+		/// <remarks>
+		///     This constructor is for performing unit/integration tests only, as this is required by Moq for mocking the <see cref="AppDbContext"/> instance.
+		///     Thus, it has been made protected and is not meant to be directly accessed.
+		/// </remarks>
+		protected AppDbContext()
 		{
 		}
 
