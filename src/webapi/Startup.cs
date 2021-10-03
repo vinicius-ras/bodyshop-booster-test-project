@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using BodyShopBoosterTest.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -14,7 +15,11 @@ namespace BodyShopBoosterTest
         /// <param name="services">The collection of services, where new services and dependency injection features are to be added or modified.</param>
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllers()
+                .AddJsonOptions(opts => {
+                    // Allows conversion from JSON string values to their respective Enum values, and vice-versa
+                    opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
             services.AddDbContextPool<AppDbContext>(opts => {
                 opts.UseSqlServer("name=ConnectionStrings:DatabaseConnectionString");
             });
