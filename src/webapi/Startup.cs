@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using BodyShopBoosterTest.Data;
+using BodyShopBoosterTest.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,9 @@ namespace BodyShopBoosterTest
             services.AddDbContextPool<AppDbContext>(opts => {
                 opts.UseSqlServer("name=ConnectionStrings:DatabaseConnectionString");
             });
+
+            // Application's custom services
+            services.AddTransient<IEstimatesService, EstimatesService>();
         }
 
 
