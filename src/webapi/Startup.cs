@@ -1,5 +1,7 @@
+using BodyShopBoosterTest.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -13,6 +15,9 @@ namespace BodyShopBoosterTest
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddDbContextPool<AppDbContext>(opts => {
+                opts.UseSqlServer("name=ConnectionStrings:DatabaseConnectionString");
+            });
         }
 
 
