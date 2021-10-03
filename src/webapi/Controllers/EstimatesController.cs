@@ -72,7 +72,7 @@ namespace BodyShopBoosterTest
 			catch (ServiceException svcEx)
 			{
 				if (svcEx.AppErrorCode == AppExceptionErrorCodes.DatabaseUpdateError)
-					return StatusCode((int)HttpStatusCode.InternalServerError, $"Failed to update the database: {svcEx.Message}");
+					return StatusCode((int)HttpStatusCode.InternalServerError, $"Failed to update the database: {svcEx.Message?.TrimEnd('.') ?? "no details were provided"}.");
 				else if (svcEx.ValidationErrors?.Any() ?? false)
 					return ValidationProblem(svcEx.ValidationErrors);
 				return BadRequest($"Error while saving data: {svcEx.Message}");
@@ -100,6 +100,61 @@ namespace BodyShopBoosterTest
 			return foundEstimate == null
 				? NotFound()
 				: Ok(foundEstimate);
+		}
+
+
+		/// <summary>Updates an existing estimate's data.</summary>
+		/// <param name="estimateId">
+		///     The unique identifier for the estimate to be updated.
+		///     This identifier must match the HTTP Request's payload ID.
+		///     Otherwise, this endpoint will return an HTTP 400 Bad Request status code.
+		/// </param>
+		/// <param name="estimateData">
+		///     <para>The data for the estimate to be updated in the database.</para>
+		///     <para>
+		///         This data should contain an <see cref="Estimate.Id"/> field, and this field must match the URL-provided ID.
+		///         Otherwise, this endpoint will return an HTTP 400 Bad Request status code.
+		///     </para>
+		/// </param>
+		/// <returns>Returns a <see cref="Task"/> representing the asynchronous operation, and wrapping the result of this action's execution.</returns>
+		/// <response code="200">
+		///     Indicates the operation was successful. The response's payload will contain the updated <see cref="Estimate"/>'s data.
+		/// </response>
+		/// <response code="400">
+		///     Indicates a validation failure on the sent data. Check if the Estimate's ID matches in both the URL-provided ID and the HTTP Response payload.
+		///     Also, verify if all of the payload's contents are valid.
+		///     The response body will contain a <see cref="ValidationProblemDetails"/> instance describing the errors.
+		/// </response>
+		/// <response code="404">Indicates the specified estimate could not be found on the database.</response>
+		[HttpPut("{id}")]
+		[ProducesResponseType(typeof(Estimate), (int)(HttpStatusCode.OK))]
+		[ProducesResponseType(typeof(ValidationProblemDetails), (int)(HttpStatusCode.BadRequest))]
+		[ProducesResponseType(typeof(void), (int)(HttpStatusCode.NotFound))]
+		public async Task<ActionResult<Estimate>> UpdateEstimate(
+			[FromRoute(Name = "id")] Guid estimateId,
+			[FromBody] Estimate estimateData)
+		{
+			// Perform extra validations
+			if (estimateId != estimateData.Id)
+				ModelState.AddModelError(nameof(Estimate.Id), $"The URL-provided ID ({estimateId}) does not match the HTTP Request's payload ID ({estimateData.Id}).");
+
+			if (ModelState.Any(entry => entry.Value.Errors.Any()))
+				return ValidationProblem(ModelState);
+
+			// Try to update the estimate
+			try
+			{
+				var updatedEstimate = await _estimatesService.UpdateEstimateAsync(estimateData);
+				return Ok(updatedEstimate);
+			}
+			catch (ServiceException svcEx)
+			{
+				if (svcEx.AppErrorCode == AppExceptionErrorCodes.DatabaseUpdateError)
+					return StatusCode((int)HttpStatusCode.InternalServerError, $"Failed to update the database: {svcEx.Message?.TrimEnd('.') ?? "no details were provided"}.");
+				else if (svcEx.ValidationErrors?.Any() ?? false)
+					return ValidationProblem(svcEx.ValidationErrors);
+				return BadRequest($"Error while saving data: {svcEx.Message}");
+			}
 		}
 	}
 }

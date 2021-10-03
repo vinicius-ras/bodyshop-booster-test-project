@@ -26,5 +26,18 @@ namespace BodyShopBoosterTest.Services
 		/// </returns>
 		/// <exception cref="ArgumentNullException">Thrown if the given estimate's ID parameter is set to <c>null</c>.</exception>
 		Task<Estimate> GetEstimateByIdAsync(Guid estimateId);
+		/// <summary>Updates an existing <see cref="Estimate"/> entry in the database.</summary>
+		/// <param name="estimate">
+		///     An object containing the data to be saved (updated) in the database.
+		///     This object should have its <see cref="Estimate.Id"/> set to the unique ID of the entry that needs to be updated in the database.
+		/// </param>
+		/// <returns>
+		///     Returns a <see cref="Task"/> representing the asynchronous operation, and wrapping an updated version containing the data of
+		///     the saved <see cref="Estimate"/> object (including its database ID).
+		/// </returns>
+		/// <exception cref="ServiceException">
+		///     Thrown for any unexpected error during the method's execution, such as in cases of invalid input data or database communication errors.
+		/// </exception>
+		Task<Estimate> UpdateEstimateAsync(Estimate estimate);
 	}
 }

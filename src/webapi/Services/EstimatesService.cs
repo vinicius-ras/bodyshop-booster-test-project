@@ -13,11 +13,10 @@ namespace BodyShopBoosterTest.Services
 	public class EstimatesService : IEstimatesService
 	{
 		// CONSTANTS
-		/// <summary>
-		///     An error code indicating that the <see cref="CreateEstimateAsync(Estimate)"/> method has been called with an <see cref="Estimate"/> object
-		///     that does not have the <see cref="EstimateStatus.Pending"/> status.
-		/// </summary>
-		private const string ErrorCodeCreatingNonPendingEstimate = "b1e0060ad9244382a057ce4ac38e84a0";
+		/// <summary>An error code indicating that the extra validations performed within the <see cref="CreateEstimateAsync(Estimate)"/> method has failed.</summary>
+		private const string ErrorCodeCreatingEstimateValidationFailed = "b1e0060ad9244382a057ce4ac38e84a0";
+		/// <summary>An error code indicating that the extra validations performed within the <see cref="UpdateEstimateAsync(Estimate)"/> method has failed.</summary>
+		private const string ErrorCodeUpdatingEstimateValidationFailed = "ff7049e8fd994127a0d8807f299d8b23";
 
 
 
@@ -56,7 +55,7 @@ namespace BodyShopBoosterTest.Services
 			{
 				throw new ServiceException($"Failed to validate data.")
 				{
-					AppErrorCode = ErrorCodeCreatingNonPendingEstimate,
+					AppErrorCode = ErrorCodeCreatingEstimateValidationFailed,
 					ValidationErrors = validationErrors,
 				};
 			}
@@ -83,6 +82,46 @@ namespace BodyShopBoosterTest.Services
 		{
 			var result = await _appDbContext.Estimates.FindAsync(estimateId);
 			return result;
+		}
+
+
+		/// <inheritdoc/>
+		public async Task<Estimate> UpdateEstimateAsync(Estimate estimate)
+		{
+			// Perform extra validations
+			var validationErrors = new ModelStateDictionary();
+			if (estimate.Id == Guid.Empty)
+				validationErrors.AddModelError(nameof(Estimate.Id), $@"Estimates must have a non-empty ""{nameof(Estimate.Id)}"" in order to be updated.");
+
+			var entityToUpdate = await _appDbContext.Estimates.FindAsync(estimate.Id);
+			if (entityToUpdate == null)
+				validationErrors.AddModelError(nameof(Estimate.Id), $@"Entity with ID {estimate.Id} does not exist in the database.");
+
+			if (validationErrors.Any())
+			{
+				throw new ServiceException($"Failed to validate data.")
+				{
+					AppErrorCode = ErrorCodeUpdatingEstimateValidationFailed,
+					ValidationErrors = validationErrors,
+				};
+			}
+
+
+			try
+			{
+				var entityEntry = _appDbContext.Entry(entityToUpdate);
+				entityEntry.CurrentValues.SetValues(estimate);
+
+				await _appDbContext.SaveChangesAsync();
+				return entityToUpdate;
+			}
+			catch (Exception ex)
+			{
+				throw new ServiceException($"An error occurred while trying to save the {nameof(Estimate)} to the database.", ex)
+				{
+					AppErrorCode = AppExceptionErrorCodes.DatabaseUpdateError,
+				};
+			}
 		}
 	}
 }
