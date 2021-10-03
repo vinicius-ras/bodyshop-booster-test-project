@@ -1,4 +1,6 @@
 using System;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace BodyShopBoosterTest.Exceptions
 {
@@ -12,6 +14,12 @@ namespace BodyShopBoosterTest.Exceptions
 		///     or defined at the service level.
 		/// </value>
 		public string AppErrorCode { get; init; }
+		/// <summary>A dictionary containing any validation errors which caused the service to fire an exception.</summary>
+		/// <value>
+		///     A model state dictionary which can be used by controllers to return errors to client applications (e.g., via
+		///     the <see cref="ControllerBase.ValidationProblem(ModelStateDictionary)"/> method).
+		/// </value>
+		public ModelStateDictionary ValidationErrors { get; init; }
 
 
 

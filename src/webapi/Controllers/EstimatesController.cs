@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BodyShopBoosterTest.Data;
@@ -43,6 +44,8 @@ namespace BodyShopBoosterTest
 			{
 				if (svcEx.AppErrorCode == AppExceptionErrorCodes.DatabaseUpdateError)
 					return StatusCode((int)HttpStatusCode.InternalServerError, $"Failed to update the database: {svcEx.Message}");
+				else if (svcEx.ValidationErrors?.Any() ?? false)
+					return ValidationProblem(svcEx.ValidationErrors);
 				return BadRequest($"Error while saving data: {svcEx.Message}");
 			}
 		}

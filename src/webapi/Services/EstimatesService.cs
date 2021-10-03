@@ -4,6 +4,7 @@ using BodyShopBoosterTest.Data;
 using BodyShopBoosterTest.Enumerations;
 using BodyShopBoosterTest.Exceptions;
 using BodyShopBoosterTest.Models;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace BodyShopBoosterTest.Services
 {
@@ -44,10 +45,15 @@ namespace BodyShopBoosterTest.Services
 		public async Task<Estimate> CreateEstimateAsync(Estimate estimate)
 		{
 			if (estimate.Status != EstimateStatus.Pending)
-				throw new ServiceException($@"New estimates must be created with a ""{EstimateStatus.Pending}"" status.")
+			{
+				var validationErrors = new ModelStateDictionary();
+				validationErrors.AddModelError(nameof(Estimate.Status), $@"New estimates must be created with a ""{EstimateStatus.Pending}"" status.");
+				throw new ServiceException($"Failed to validate data.")
 				{
 					AppErrorCode = ErrorCodeCreatingNonPendingEstimate,
+					ValidationErrors = validationErrors,
 				};
+			}
 
 			try
 			{
