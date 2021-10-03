@@ -16,6 +16,12 @@ namespace BodyShopBoosterTest.Data
 
 		// INSTANCE METHODS
 		/// <summary>Constructor.</summary>
+		public AppDbContext()
+		{
+		}
+
+
+		/// <summary>Constructor.</summary>
 		/// <param name="options">Options used to initialize and configure the <see cref="DbContext"/> instance.</param>
 		public AppDbContext(DbContextOptions options)
 			: base(options)
