@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using System.Text.Json.Serialization;
 using BodyShopBoosterTest.Data;
 using BodyShopBoosterTest.Services;
@@ -16,14 +18,31 @@ namespace BodyShopBoosterTest
         /// <param name="services">The collection of services, where new services and dependency injection features are to be added or modified.</param>
         public void ConfigureServices(IServiceCollection services)
         {
+            // Controller-related services
             services.AddControllers()
                 .AddJsonOptions(opts => {
                     // Allows conversion from JSON string values to their respective Enum values, and vice-versa
                     opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
+
+
+            // Database-related services
             services.AddDbContextPool<AppDbContext>(opts => {
                 opts.UseSqlServer("name=ConnectionStrings:DatabaseConnectionString");
             });
+
+
+            // OpenAPI-related services (Swashbuckle/Swagger)
+            services.AddSwaggerGen(opts => {
+                // Add compiler-generated documentation to the OpenAPI documentation
+                string curAssemblyName = Assembly.GetExecutingAssembly().GetName().Name,
+                    appBasePath = AppContext.BaseDirectory,
+                    xmlDocumentationPath = $"{appBasePath}{curAssemblyName}.xml";
+                opts.IncludeXmlComments(xmlDocumentationPath);
+
+                opts.EnableAnnotations();
+            });
+
 
             // Application's custom services
             services.AddTransient<IEstimatesService, EstimatesService>();
@@ -38,7 +57,12 @@ namespace BodyShopBoosterTest
             if (env.IsDevelopment())
                 app.UseDeveloperExceptionPage();
 
-            app.UseRouting();
+            app.UseStaticFiles()
+                .UseSwagger()
+                .UseSwaggerUI(opts => {
+                    opts.SwaggerEndpoint("/swagger/v1/swagger.json", "BodyShop Booster Estimates API");
+                })
+                .UseRouting();
 
             app.UseEndpoints(endpoints =>
             {
