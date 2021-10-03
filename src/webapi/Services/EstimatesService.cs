@@ -76,5 +76,13 @@ namespace BodyShopBoosterTest.Services
 				};
 			}
 		}
+
+
+		/// <inheritdoc/>
+		public async Task<Estimate> GetEstimateByIdAsync(Guid estimateId)
+		{
+			var result = await _appDbContext.Estimates.FindAsync(estimateId);
+			return result;
+		}
 	}
 }

@@ -1,8 +1,10 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BodyShopBoosterTest.Attributes;
 using BodyShopBoosterTest.Data;
+using BodyShopBoosterTest.Enumerations;
 using BodyShopBoosterTest.Exceptions;
 using BodyShopBoosterTest.Models;
 using BodyShopBoosterTest.Services;
@@ -26,18 +28,21 @@ namespace BodyShopBoosterTest
 
 
 		// INSTANCE METHODS
-		[HttpGet("{id}")]
-		public async Task<ActionResult<Estimate>> GetEstimateById() => throw new System.NotImplementedException();
-
-
 		/// <summary>Constructor.</summary>
 		/// <param name="estimatesService">Container-injected service for accessing <see cref="Estimate"/>-related operations.</param>
 		public EstimatesController(IEstimatesService estimatesService) =>
 			_estimatesService = estimatesService;
 
 
-		/// <summary>Endpoint for registering a new estimate in the database.</summary>
-		/// <param name="estimate">The data for the estimate to be registered in the database.</param>
+		/// <summary>Registers a new estimate in the database.</summary>
+		/// <param name="estimate">
+		///     <para>The data for the estimate to be registered in the database.</para>
+		///     <para>
+		///         This data should not contain an <see cref="Estimate.Id"/> field,
+		///         and its <see cref="Estimate.Status"/> field should always be set to <see cref="EstimateStatus.Pending"/>.
+		///         Otherwise, this endopint will return an HTTP 400 Bad Request status code.
+		///     </para>
+		/// </param>
 		/// <returns>Returns a <see cref="Task"/> representing the asynchronous operation, and wrapping the result of this action's execution.</returns>
 		/// <response code="201">
 		///     Indicates the operation was successful. An <see cref="Estimate"/> containing the newly created client's data
@@ -49,8 +54,8 @@ namespace BodyShopBoosterTest
 		///     The response body will contain a <see cref="ValidationProblemDetails"/> instance describing the errors.
 		/// </response>
 		[HttpPost]
-		[ProducesResponseType(typeof(Estimate), 201)]
-		[ProducesResponseType(typeof(ValidationProblemDetails), 400)]
+		[ProducesResponseType(typeof(Estimate), (int)HttpStatusCode.Created)]
+		[ProducesResponseType(typeof(ValidationProblemDetails), (int)HttpStatusCode.BadRequest)]
 		[CustomResponseHeader(StatusCode = HttpStatusCode.Created, HeaderName = nameof(HeaderNames.Location), Description = "URI to the newly registered Client Application's data.")]
 		public async Task<IActionResult> CreateEstimateAsync([FromBody] Estimate estimate)
 		{
@@ -72,6 +77,29 @@ namespace BodyShopBoosterTest
 					return ValidationProblem(svcEx.ValidationErrors);
 				return BadRequest($"Error while saving data: {svcEx.Message}");
 			}
+		}
+
+
+		/// <summary>Retrieves an existing estimate's data.</summary>
+		/// <param name="estimateId">The unique identifier for the estimate to be retrieved.</param>
+		/// <returns>Returns a <see cref="Task"/> representing the asynchronous operation, and wrapping the result of this action's execution.</returns>
+		/// <response code="200">
+		///     Indicates the operation was successful. The response's payload will contain the corresponding <see cref="Estimate"/>'s data.
+		/// </response>
+		/// <response code="400">
+		///     Indicates the specified estimate's ID has been specified with an invalid format.
+		///     The response body will contain a <see cref="ValidationProblemDetails"/> instance describing the errors.
+		/// </response>
+		/// <response code="404">Indicates the specified estimate could not be found on the database.</response>
+		[HttpGet("{id}")]
+		[ProducesResponseType(typeof(Estimate), (int)(HttpStatusCode.OK))]
+		[ProducesResponseType(typeof(ValidationProblemDetails), (int)(HttpStatusCode.BadRequest))]
+		public async Task<ActionResult<Estimate>> GetEstimateById([FromRoute(Name = "id")] Guid estimateId)
+		{
+			var foundEstimate = await _estimatesService.GetEstimateByIdAsync(estimateId);
+			return foundEstimate == null
+				? NotFound()
+				: Ok(foundEstimate);
 		}
 	}
 }
