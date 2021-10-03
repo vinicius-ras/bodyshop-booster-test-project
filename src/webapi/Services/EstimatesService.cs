@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using BodyShopBoosterTest.Data;
 using BodyShopBoosterTest.Enumerations;
@@ -44,16 +45,22 @@ namespace BodyShopBoosterTest.Services
 		/// <inheritdoc/>
 		public async Task<Estimate> CreateEstimateAsync(Estimate estimate)
 		{
+			// Perform extra validations
+			var validationErrors = new ModelStateDictionary();
 			if (estimate.Status != EstimateStatus.Pending)
-			{
-				var validationErrors = new ModelStateDictionary();
 				validationErrors.AddModelError(nameof(Estimate.Status), $@"New estimates must be created with a ""{EstimateStatus.Pending}"" status.");
+			if (estimate.Id != Guid.Empty)
+				validationErrors.AddModelError(nameof(Estimate.Id), $@"New estimates must have an empty ""{nameof(Estimate.Id)}"".");
+
+			if (validationErrors.Any())
+			{
 				throw new ServiceException($"Failed to validate data.")
 				{
 					AppErrorCode = ErrorCodeCreatingNonPendingEstimate,
 					ValidationErrors = validationErrors,
 				};
 			}
+
 
 			try
 			{

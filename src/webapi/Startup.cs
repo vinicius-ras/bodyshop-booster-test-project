@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using BodyShopBoosterTest.Attributes;
 using BodyShopBoosterTest.Data;
 using BodyShopBoosterTest.Services;
 using Microsoft.AspNetCore.Builder;
@@ -37,10 +39,12 @@ namespace BodyShopBoosterTest
                 // Add compiler-generated documentation to the OpenAPI documentation
                 string curAssemblyName = Assembly.GetExecutingAssembly().GetName().Name,
                     appBasePath = AppContext.BaseDirectory,
-                    xmlDocumentationPath = $"{appBasePath}{curAssemblyName}.xml";
+                    xmlDocumentationPath = Path.Combine(appBasePath, $"{curAssemblyName}.xml");
                 opts.IncludeXmlComments(xmlDocumentationPath);
 
                 opts.EnableAnnotations();
+                opts.SchemaFilter<ValidationProblemDetailsFilter>();
+                opts.OperationFilter<CustomResponseHeaderOperationFilter>();
             });
 
 
