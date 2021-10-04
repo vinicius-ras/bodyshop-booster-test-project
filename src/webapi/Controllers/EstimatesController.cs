@@ -40,7 +40,7 @@ namespace BodyShopBoosterTest
 		///     <para>
 		///         This data should not contain an <see cref="Estimate.Id"/> field,
 		///         and its <see cref="Estimate.Status"/> field should always be set to <see cref="EstimateStatus.Pending"/>.
-		///         Otherwise, this endopint will return an HTTP 400 Bad Request status code.
+		///         Otherwise, this endpoint will return an HTTP 400 Bad Request status code.
 		///     </para>
 		/// </param>
 		/// <returns>Returns a <see cref="Task"/> representing the asynchronous operation, and wrapping the result of this action's execution.</returns>

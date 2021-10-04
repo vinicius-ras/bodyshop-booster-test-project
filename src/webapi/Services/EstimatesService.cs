@@ -110,7 +110,7 @@ namespace BodyShopBoosterTest.Services
 			try
 			{
 				var entityEntry = _appDbContext.Entry(entityToUpdate);
-				entityEntry.CurrentValues.SetValues(estimate);
+				entityEntry?.CurrentValues?.SetValues(estimate);
 
 				await _appDbContext.SaveChangesAsync();
 				return entityToUpdate;

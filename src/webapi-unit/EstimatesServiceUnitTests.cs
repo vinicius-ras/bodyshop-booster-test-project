@@ -59,24 +59,43 @@ namespace BodyShopBoosterTest_UnitTests
         private AppDbContext CreateMockAppDbContext(Action<Mock<AppDbContext>> extraSetups = null, bool canFindEstimates = true)
         {
             // Create a mock DbSet<Estimate> object for the mocked AppDbContext
+            Estimate usedObject = null;
+            bool isUpdating = false;
+
             var estimatesDbSetMock = new Mock<DbSet<Estimate>>();
             estimatesDbSetMock.Setup(dbSet => dbSet.FindAsync(It.IsAny<object[]>()))
-                .Returns(() => ValueTask.FromResult(
-                    canFindEstimates ? InstantiateValidEstimateData(withValidId: true) : null
-                ));
+                .Callback<object[]>((objs) => {
+                    isUpdating = true;
+                    usedObject = InstantiateValidEstimateData(withValidId: false);
+                    usedObject.Id = (Guid)objs[0];
+                })
+                .Returns(() => {
+                    if (canFindEstimates == false)
+                        return ValueTask.FromResult<Estimate>(null);
+
+                    var result = isUpdating
+                        ? usedObject
+                        : InstantiateValidEstimateData(withValidId: true);
+                    return ValueTask.FromResult(result);
+                });
 
 
             // Create a mock AppDbContext and simulate some of its methods and properties
-            Estimate addedObject = null;
             var appDbContextMock = new Mock<AppDbContext>();
             appDbContextMock.Setup(context => context.AddAsync(It.IsAny<Estimate>(), It.IsAny<CancellationToken>()))
                 .Callback<Estimate, CancellationToken>((addedEstimate, _) => {
-                    addedObject = addedEstimate;
+                    usedObject = addedEstimate;
+                });
+            appDbContextMock.Setup(context => context.AddAsync(It.IsAny<Estimate>(), It.IsAny<CancellationToken>()))
+                .Callback<Estimate, CancellationToken>((addedEstimate, _) => {
+                    usedObject = addedEstimate;
                 });
             appDbContextMock.Setup(context => context.SaveChangesAsync(It.IsAny<CancellationToken>()))
                 .Callback(() => {
                     // Assigns a new ID to the Estimate, as it happens when DbContext.SaveChangesAsync(...) is called
-                    addedObject.Id = Guid.NewGuid();
+                    usedObject.Id = (usedObject.Id == Guid.Empty)
+                        ? Guid.NewGuid()
+                        : usedObject.Id;
                 });
 
             appDbContextMock.SetupGet(context => context.Estimates)
@@ -114,7 +133,7 @@ namespace BodyShopBoosterTest_UnitTests
             var outputData = await estimatesService.CreateEstimateAsync(inputData);
             var outputValidationContext = new ValidationContext(outputData);
             var outputValidationResults = new List<ValidationResult>();
-            bool isValidOutputData = Validator.TryValidateObject(outputData, inputValidationContext, inputValidationResults);
+            bool isValidOutputData = Validator.TryValidateObject(outputData, outputValidationContext, outputValidationResults);
 
             bool outputDataHasInsertionId = (outputData.Id != Guid.Empty);
 
@@ -291,6 +310,133 @@ namespace BodyShopBoosterTest_UnitTests
 
             // Assert
             Assert.Null(result);
+        }
+
+
+        [Fact]
+        public async Task UpdateEstimateAsync_ValidData_ReturnsSuccess()
+        {
+            // Arrange
+            var inputData = InstantiateValidEstimateData(withValidId: true);
+            var inputValidationContext = new ValidationContext(inputData);
+            var inputValidationResults = new List<ValidationResult>();
+
+            var mockAppDbContext = CreateMockAppDbContext();
+            var estimatesService = new EstimatesService(mockAppDbContext);
+
+
+            // Act
+            bool inputDataHasNonEmptyId = (inputData.Id != Guid.Empty);
+            bool isValidInputData = Validator.TryValidateObject(inputData, inputValidationContext, inputValidationResults);
+
+            var outputData = await estimatesService.UpdateEstimateAsync(inputData);
+            var outputValidationContext = new ValidationContext(outputData);
+            var outputValidationResults = new List<ValidationResult>();
+            bool isValidOutputData = Validator.TryValidateObject(outputData, outputValidationContext, outputValidationResults);
+
+            bool outputHasSameIdAsInput = (outputData.Id == inputData.Id);
+
+
+            // Assert
+            Assert.True(inputDataHasNonEmptyId);
+            Assert.True(isValidInputData);
+            Assert.True(isValidOutputData);
+            Assert.True(outputHasSameIdAsInput);
+        }
+
+
+        [Fact]
+        public async Task UpdateEstimateAsync_EmptyGuid_ThrowsServiceException()
+        {
+            // Arrange
+            var inputData = InstantiateValidEstimateData(withValidId: false);
+
+            var mockAppDbContext = CreateMockAppDbContext();
+            var estimatesService = new EstimatesService(mockAppDbContext);
+
+
+            // Act
+            bool inputDataHasEmptyId = (inputData.Id == Guid.Empty);
+            ServiceException caughtException = null;
+            try
+            {
+                await estimatesService.UpdateEstimateAsync(inputData);
+            }
+            catch (ServiceException svcEx)
+            {
+                caughtException = svcEx;
+            }
+
+
+            // Assert
+            Assert.True(inputDataHasEmptyId);
+            Assert.NotNull(caughtException);
+            Assert.NotNull(caughtException.ValidationErrors);
+            Assert.NotEmpty(caughtException.ValidationErrors);
+            Assert.Contains(caughtException.ValidationErrors.Keys, errorKey => errorKey == nameof(Estimate.Id));
+        }
+
+
+        [Fact]
+        public async Task UpdateEstimateAsync_TargetEntityNotFound_ThrowsServiceException()
+        {
+            // Arrange
+            var inputData = InstantiateValidEstimateData(withValidId: true);
+
+            var mockAppDbContext = CreateMockAppDbContext(canFindEstimates: false);
+            var estimatesService = new EstimatesService(mockAppDbContext);
+
+
+            // Act
+            bool inputDataHasNonEmptyId = (inputData.Id != Guid.Empty);
+            ServiceException caughtException = null;
+            try
+            {
+                await estimatesService.UpdateEstimateAsync(inputData);
+            }
+            catch (ServiceException svcEx)
+            {
+                caughtException = svcEx;
+            }
+
+
+            // Assert
+            Assert.True(inputDataHasNonEmptyId);
+            Assert.NotNull(caughtException);
+            Assert.NotNull(caughtException.ValidationErrors);
+            Assert.NotEmpty(caughtException.ValidationErrors);
+            Assert.Contains(caughtException.ValidationErrors.Keys, errorKey => errorKey == nameof(Estimate.Id));
+        }
+
+
+        [Fact]
+        public async Task UpdateEstimateAsync_SaveChangesAsyncThrowsException_ThrowsServiceException()
+        {
+            // Arrange
+            var inputData = InstantiateValidEstimateData(withValidId: true);
+
+            var mockAppDbContext = CreateMockAppDbContext(mockConfigs => {
+                mockConfigs.Setup(ctx => ctx.SaveChangesAsync(It.IsAny<CancellationToken>()))
+                    .Throws<Exception>();
+            });
+            var estimatesService = new EstimatesService(mockAppDbContext);
+
+
+            // Act
+            ServiceException caughtException = null;
+            try
+            {
+                await estimatesService.UpdateEstimateAsync(inputData);
+            }
+            catch (ServiceException svcEx)
+            {
+                caughtException = svcEx;
+            }
+
+
+            // Assert
+            Assert.NotNull(caughtException);
+            Assert.Equal(caughtException.AppErrorCode, AppExceptionErrorCodes.DatabaseUpdateError);
         }
     }
 }
