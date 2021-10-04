@@ -1,0 +1,21 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Launch Web API",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build",
+			"program": "${workspaceFolder}/src/webapi/bin/Debug/net5.0/BodyShopBoosterTest.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/src/webapi",
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			},
+			"logging": {
+				"moduleLoad": false
+			},
+			"internalConsoleOptions": "openOnSessionStart"
+		}
+	]
+}

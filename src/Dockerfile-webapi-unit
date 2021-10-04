@@ -1,0 +1,13 @@
+FROM mcr.microsoft.com/dotnet/sdk:5.0
+WORKDIR /app/webapi-unit/
+
+# Restore the project to take advantage of Docker's layers for faster container builds
+COPY webapi/*.csproj ../webapi/
+COPY webapi-unit/*.csproj ../webapi-unit/
+RUN dotnet restore
+
+# Copy all other project files and build the project
+COPY webapi/* ../webapi/
+COPY webapi-unit/* ../webapi-unit/
+
+ENTRYPOINT ["dotnet", "test"]

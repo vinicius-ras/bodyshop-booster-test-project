@@ -1,0 +1,23 @@
+## STAGE 1: builder image
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS BUILDER
+WORKDIR /app
+
+# Restore the project to take advantage of Docker's layers for faster container builds
+COPY webapi/*.csproj ./
+RUN dotnet restore
+
+# Copy all other project files and build the project
+COPY webapi/* ./
+RUN dotnet publish -c Release -o built_app
+
+
+
+## STAGE 2: final ("runner") image
+FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS RUNNER
+WORKDIR /app
+
+ENV ConnectionStrings__DatabaseConnectionString="Server=bsb-test-project-database;Database=bsb_testproject_database;User Id=sa;Password=my-database-default-P4SSWORD;"
+ENV ASPNETCORE_URLS="http://*:5000"
+
+COPY --from=BUILDER /app/built_app .
+ENTRYPOINT [ "dotnet", "BodyShopBoosterTest.dll" ]
